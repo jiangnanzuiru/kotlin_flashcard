@@ -1,0 +1,211 @@
+package flashcards
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.io.File
+
+//val separator = File.separator
+//val fileLocation = "C:${separator}Users${separator}jessi${separator}IdeaProjects${separator}Flashcards (Kotlin)${separator}Flashcards (Kotlin)${separator}Menu, please${separator}"
+
+class FlashCard {
+    data class Card(var term: String, var definition: String, var mistakes: Int = 0)
+    private val deckOfCards = mutableListOf<Card>()
+    val logList = mutableListOf<String>()
+
+    fun println(message: Any?) {
+        logList.add(message.toString())
+        kotlin.io.println(message)
+    }
+
+    fun readln(): String {
+        val input = kotlin.io.readln()
+        logList.add(input)
+        return input
+    }
+
+    fun createCard() {
+        this.println("The card:")
+        val term = this.readln()
+        if (deckOfCards.any { it.term == term }) {
+            this.println("The card \"$term\" already exists.")
+            return
+        }
+
+        this.println("The definition of the card:")
+        val def = this.readln()
+        if (deckOfCards.any { it.definition == def }) {
+            this.println("The definition \"$def\" already exists.")
+            return
+        }
+
+        val card = Card(term, def)
+        deckOfCards.add(card)
+        this.println("The pair (\"$term\":\"$def\") has been added.\n")
+    }
+
+    fun removeCard() {
+        this.println("Which card?")
+        val cardToRemove = this.readln()
+        if(!deckOfCards.any { it.term == cardToRemove }) {
+            this.println("Can't remove \"$cardToRemove\": there is no such card.\n")
+            return
+        }
+        deckOfCards.removeIf { it.term == cardToRemove }
+        this.println("The card has been removed.\n")
+    }
+
+    fun askCards() {
+        this.println("How many times to ask?")
+        repeat(this.readln().toInt()) {
+            val randomCardTerm = deckOfCards.random().term
+            val randomCardDef = deckOfCards.firstOrNull { it.term == randomCardTerm }?.definition
+            this.println("Print the definition of \"$randomCardTerm\":")
+            val answerDef = readln()
+            if (deckOfCards.any {it.definition == answerDef && randomCardDef != answerDef}) {
+                deckOfCards.firstOrNull { it.term == randomCardTerm }!!.mistakes += 1
+                this.println("Wrong. The right answer is \"$randomCardDef\", but your definition is correct for \"${deckOfCards.firstOrNull { it.definition == answerDef }?.term}\".")
+            } else if (randomCardDef != answerDef) {
+                deckOfCards.firstOrNull { it.term == randomCardTerm }!!.mistakes += 1
+                this.println("Wrong. The right answer is \"$randomCardDef\".")
+            } else {
+                this.println("Correct!")
+            }
+        }
+        println()
+    }
+
+    fun importCards() {
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        val type = Types.newParameterizedType(MutableList::class.java, Card::class.java)
+        val cardAdapter = moshi.adapter<MutableList<Card>>(type)
+        this.println("File name:")
+        val file = File(this.readln())
+//        val file = File("$fileLocation${readln()}")
+        val fileDeckOfCards: MutableList<Card>
+        if(file.exists()) {
+            fileDeckOfCards = cardAdapter.fromJson(file.readText())!!
+            this.println("${fileDeckOfCards.size} cards have been loaded.\n")
+            for (card in fileDeckOfCards) {
+                val indexForSameTerm = deckOfCards.indexOfFirst { it.term == card.term }
+                if (indexForSameTerm == -1) {
+                    deckOfCards.add(card)
+                } else {
+                    deckOfCards[indexForSameTerm].definition = card.definition
+                }
+            }
+        } else this.println("File not found.\n")
+        return
+    }
+
+    fun exportCards() {
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        val type = Types.newParameterizedType(MutableList::class.java, Card::class.java)
+        val cardAdapter = moshi.adapter<MutableList<Card>>(type)
+        this.println("File name:")
+        File(this.readln()).writeText(cardAdapter.toJson(deckOfCards))
+//        File("$fileLocation${readln()}").writeText(cardAdapter.toJson(deckOfCards))
+        this.println("${deckOfCards.size} cards have been saved.\n")
+    }
+
+    fun hardestCard() {
+        val highestErrorCount = deckOfCards.maxOfOrNull { it.mistakes }
+        var counterOfCardsWithHighestErrorCount = 0
+        deckOfCards.forEach { if (it.mistakes == highestErrorCount) counterOfCardsWithHighestErrorCount+=1 }
+
+        if (highestErrorCount == 0 || deckOfCards.isEmpty()) {
+            this.println("There are no cards with errors.\n")
+        } else if (counterOfCardsWithHighestErrorCount == 1) {
+            val hardestTerm = deckOfCards.firstOrNull { it.mistakes == highestErrorCount }!!.term
+            this.println("The hardest card is \"$hardestTerm\". You have $highestErrorCount errors answering it.\n")
+        } else {
+            val hardestTermList = deckOfCards.filter { it.mistakes == highestErrorCount }
+            val hardestTerms = mutableListOf<String>()
+            hardestTermList.forEach{ hardestTerms.add(it.term) }
+            this.println("The hardest cards are \"${hardestTerms.joinToString("\", \"")}\". You have $highestErrorCount errors answering them.\n")
+        }
+    }
+
+    fun resetStats() {
+        deckOfCards.forEach{ it.mistakes = 0}
+        this.println("Card statistics have been reset.")
+    }
+
+    fun saveLog() {
+        this.println("File name:")
+        val logFile = File(this.readln())
+        logFile.writeText(logList.joinToString("\n"))
+        println(logList.joinToString("\n"))
+        this.println("The log has been saved.\n")
+    }
+
+    fun importArgs(importArgsFileName: String) {
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        val type = Types.newParameterizedType(MutableList::class.java, Card::class.java)
+        val cardAdapter = moshi.adapter<MutableList<Card>>(type)
+        val file = File(importArgsFileName)
+        val fileDeckOfCards: MutableList<Card>
+        if(file.exists()) {
+            fileDeckOfCards = cardAdapter.fromJson(file.readText())!!
+            this.println("${fileDeckOfCards.size} cards have been loaded.\n")
+            for (card in fileDeckOfCards) {
+                val indexForSameTerm = deckOfCards.indexOfFirst { it.term == card.term }
+                if (indexForSameTerm == -1) {
+                    deckOfCards.add(card)
+                } else {
+                    deckOfCards[indexForSameTerm].definition = card.definition
+                }
+            }
+        } else this.println("File not found.\n")
+    }
+
+    fun exportArgs(exportArgsFileName: String) {
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        val type = Types.newParameterizedType(MutableList::class.java, Card::class.java)
+        val cardAdapter = moshi.adapter<MutableList<Card>>(type)
+        File(exportArgsFileName).writeText(cardAdapter.toJson(deckOfCards))
+        this.println("${deckOfCards.size} cards have been saved.\n")
+    }
+
+}
+
+fun main(args: Array<String>) {
+    val flashcard = FlashCard()
+    var importArgsProvided: Boolean = false
+    var exportArgsProvided: Boolean = false
+    var importArgsFileName: String = ".txt"
+    var exportArgsFileName: String = ".txt"
+
+    for (str in args) {
+        if (str == "-import") {
+            importArgsProvided = true
+            importArgsFileName = args[args.indexOfFirst { it == "-import" } + 1]
+        } else if (str == "-export") {
+            exportArgsProvided = true
+            exportArgsFileName = args[args.indexOfFirst { it == "-export" } + 1]
+        }
+    }
+
+    while(true) {
+        flashcard.println("Input the action (add, remove, import, export, ask, exit, log, hardest card, reset stats):")
+        if (importArgsProvided) {
+            flashcard.importArgs(importArgsFileName)
+        }
+        when(flashcard.readln()) {
+            "add" -> flashcard.createCard()
+            "remove" -> flashcard.removeCard()
+            "import" -> flashcard.importCards()
+            "export" -> flashcard.exportCards()
+            "ask" -> flashcard.askCards()
+            "log" -> flashcard.saveLog()
+            "hardest card" -> flashcard.hardestCard()
+            "reset stats" -> flashcard.resetStats()
+            "exit" -> {
+                flashcard.println("Bye bye!")
+                if (exportArgsProvided) {
+                    flashcard.exportArgs(exportArgsFileName)
+                }
+                return
+            }
+        }
+    }
+}
